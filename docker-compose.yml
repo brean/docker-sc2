@@ -1,0 +1,14 @@
+services:
+  sc2bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - "${SC_PATH}:/root/StarCraftII:z"
+      - ./bot:/bot:z
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      # command: ["python3", "/bot/main.py"]
+    command: ["python3", "-m", "pysc2.bin.agent", "--map", "${MAP}"]
+    environment: 
+      - DISPLAY
+    privileged: true
