@@ -7,8 +7,11 @@ services:
       - "${SC_PATH}:/root/StarCraftII:z"
       - ./bot:/bot:z
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
-      # command: ["python3", "/bot/main.py"]
+    # command: ["python3", "/bot/main.py"]
     command: ["python3", "-m", "pysc2.bin.agent", "--map", "${MAP}"]
     environment: 
       - DISPLAY
+      - "PYTHONUNBUFFERED=1"
+      - NVIDIA_VISIBLE_DEVICES=all # for docker-nvidia2
+      - NVIDIA_DRIVER_CAPABILITIES=all # for docker-nvidia2
     privileged: true
