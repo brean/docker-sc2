@@ -9,7 +9,4 @@ RUN apt-get update \
     libosmesa6 \
   && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install pysc2
-
-COPY ./bot /bot
-RUN cd /bot && pip install -e .
+RUN pip3 install burnysc2

@@ -8,9 +8,7 @@ services:
       - ./bot:/bot:z
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
     command: [
-      "python3", "-m", "pysc2.bin.agent",
-      "--map", "${MAP}",
-      "--agent", "sc2bot.my_randombot.RandomBot"]
+      "python", "/bot/cannon_rush.py"]
     environment: 
       - DISPLAY
       - "PYTHONUNBUFFERED=1"
