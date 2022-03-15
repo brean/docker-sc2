@@ -7,8 +7,10 @@ services:
       - "${SC_PATH}:/root/StarCraftII:z"
       - ./bot:/bot:z
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
-    # command: ["python3", "/bot/main.py"]
-    command: ["python3", "-m", "pysc2.bin.agent", "--map", "${MAP}"]
+    command: [
+      "python3", "-m", "pysc2.bin.agent",
+      "--map", "${MAP}",
+      "--agent", "sc2bot.my_randombot.RandomBot"]
     environment: 
       - DISPLAY
       - "PYTHONUNBUFFERED=1"

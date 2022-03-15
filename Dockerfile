@@ -10,3 +10,6 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install pysc2
+
+COPY ./bot /bot
+RUN cd /bot && pip install -e .
