@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "PYSC2: Cannon Rush Bot locally",
+      "type": "python",
+      "request": "launch",
+      "program": "bot/cannon_rush.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "SC2PATH": "/home/andreas/.wine/drive_c/Program Files (x86)/StarCraft II",
+        "SC2PF": "WineLinux",
+        "MAP": "AbyssalReefLE"
+      }
+    }
+  ]
+}

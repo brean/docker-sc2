@@ -9,4 +9,4 @@ RUN apt-get update \
     libosmesa6 \
   && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install burnysc2
+RUN pip3 install burnysc2 six

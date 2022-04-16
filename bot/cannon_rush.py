@@ -8,11 +8,13 @@ from sc2 import maps
 from sc2.bot_ai import BotAI
 from sc2.data import Difficulty, Race
 from sc2.main import run_game
+import datetime
 
-#sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 
 
 class CannonRushBot(BotAI):
+
     async def on_step(self, iteration):
         if iteration == 0:
             await self.chat_send("(probe)(pylon)(cannon)(cannon)(gg)")
@@ -68,11 +70,25 @@ class CannonRushBot(BotAI):
 
 
 def main():
+    # debug which map we are loading
+    print(f'load map {os.environ["MAP"]}')
+    
+    # save replay in user path to directly run local sc2 for debugging
+    now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    replay_path = f'/root/Documents/StarCraftII/Accounts/'
+    account_id = os.listdir(replay_path)[0]
+    replay_path += account_id 
+    replay_path += '/'
+    replay_path += os.listdir(replay_path)[0]
+    replay_path += f'/Replays/Multiplayer/{now}.sc2replay'
+    print(f'save replay as {replay_path}')
+
     run_game(
-        maps.get("(2)CatalystLE"),
+        maps.get(os.environ['MAP']),
         [Bot(Race.Protoss, CannonRushBot(), name="CheeseCannon"),
          Computer(Race.Protoss, Difficulty.Medium)],
         realtime=False,
+        save_replay_as=replay_path
     )
 
 
