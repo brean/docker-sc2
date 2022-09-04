@@ -7,6 +7,8 @@ RUN apt-get update \
   && apt-get install -y \
     x11-xserver-utils \
     libosmesa6 \
+    python3-opencv \
+    python3-numpy \
   && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install burnysc2 six
+RUN pip3 install burnysc2 six opencv-python pyqt5

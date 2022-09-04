@@ -1,5 +1,6 @@
 from sc2.player import Bot, Computer
 from sc2.ids.unit_typeid import UnitTypeId
+from pathlib import Path
 import random
 import os
 import sys
@@ -10,12 +11,44 @@ from sc2.data import Difficulty, Race
 from sc2.main import run_game
 import datetime
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
+# use opencv to visualize the map
+import cv2
+import numpy as np
+
+BASE_DIR = Path(__file__).parent.absolute()
+RED = 2
+GREEN = 1
+BLUE = 0
 
 
 class CannonRushBot(BotAI):
+    img_num = 0
+
+    def mark_pixel(self, img, items, color):
+        for item in items:
+            x, y = item.position_tuple
+            img[int(x)][int(y)] = color
+
+
+    async def visualize_map(self):
+
+        # print(dir(self.game_info))
+        # ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', '_find_groups', '_find_ramps_and_vision_blockers', '_proto', 'local_map_path', 'map_center', 'map_name', 'map_ramps', 'map_size', 'pathing_grid', 'placement_grid', 'playable_area', 'player_races', 'player_start_location', 'players', 'start_locations', 'terrain_height', 'vision_blockers']
+        height, width = self.game_info.map_size
+        img = np.zeros((height, width, 3), np.uint8)
+        self.mark_pixel(img, self.mineral_field, [255, 50, 50])
+        self.mark_pixel(img, self.enemy_units, [30, 30, 255])
+        self.mark_pixel(img, self.enemy_structures, [50, 50, 235])
+        self.mark_pixel(img, self.units, [30, 255, 30])
+        self.mark_pixel(img, self.structures, [50, 235, 50])
+        self.img_num += 1
+        print(f'{self.img_num}.png')
+        cv2.imwrite(f'{self.img_num}.png', img)
+        return
 
     async def on_step(self, iteration):
+        await self.visualize_map()
+
         if iteration == 0:
             await self.chat_send("(probe)(pylon)(cannon)(cannon)(gg)")
 
@@ -75,12 +108,16 @@ def main():
     
     # save replay in user path to directly run local sc2 for debugging
     now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    replay_path = f'/root/Documents/StarCraftII/Accounts/'
-    account_id = os.listdir(replay_path)[0]
-    replay_path += account_id 
-    replay_path += '/'
-    replay_path += os.listdir(replay_path)[0]
-    replay_path += f'/Replays/Multiplayer/{now}.sc2replay'
+    
+    #replay_path = f'/root/Documents/StarCraftII/Accounts/'
+    #account_id = os.listdir(replay_path)[0]
+    #replay_path += account_id 
+    #replay_path += '/'
+    #replay_path += os.listdir(replay_path)[0]
+    replays_dir = BASE_DIR / 'replays'
+    if not replays_dir.exists():
+        os.mkdir(replays_dir)
+    replay_path = replays_dir / f'{now}.sc2replay'
     print(f'save replay as {replay_path}')
 
     run_game(
@@ -90,6 +127,7 @@ def main():
         realtime=False,
         save_replay_as=replay_path
     )
+
 
 
 if __name__ == "__main__":

@@ -1,0 +1,3 @@
+[submodule "react-sc2"]
+	path = react-sc2
+	url = git@github.com:brean/react-sc2.git
