@@ -1,3 +1,6 @@
 [submodule "react-sc2"]
 	path = react-sc2
 	url = git@github.com:brean/react-sc2.git
+[submodule "web-server-sc2"]
+	path = web-server-sc2
+	url = git@github.com:brean/web-server-sc2.git

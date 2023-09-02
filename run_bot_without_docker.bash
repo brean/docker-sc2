@@ -1,3 +1,4 @@
+#!/bin/bash
 # start without docker using wine.
 #declare -x SC2PF=WineLinux
 # Or a wine binary from lutris:

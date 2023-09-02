@@ -7,28 +7,68 @@ import sys
 
 from sc2 import maps
 from sc2.bot_ai import BotAI
-from sc2.data import Difficulty, Race
+from sc2.data import Difficulty, Race, Result
 from sc2.main import run_game
 import datetime
+
+# use json to store for web-visualization
+import json
 
 # use opencv to visualize the map
 import cv2
 import numpy as np
 
-BASE_DIR = Path(__file__).parent.absolute()
+BASE_DIR = Path(__file__).parent.absolute() / 'data'
 RED = 2
 GREEN = 1
 BLUE = 0
 
 
 class CannonRushBot(BotAI):
-    img_num = 0
+    def __init__(self):
+        super().__init__()
+        self.img_num = 0
+        self.map_saved = False
+        self.json_game_data = []
+        self.map_data = None
 
     def mark_pixel(self, img, items, color):
         for item in items:
             x, y = item.position_tuple
             img[int(x)][int(y)] = color
 
+    def _parse_position(self, item):
+        return [round(p * 2) / 2 for p in item.position_tuple]
+
+    def items_to_list(self, items):
+        data = []
+        for item in items:
+            pos = self._parse_position(item)
+            data.append(pos + [item.type_id.value])
+        return data
+
+    def int_result(self, result):
+        return {
+            Result.Tie: 0,
+            Result.Victory: 1,
+            Result.Defeat: 2,
+            Result.Undecided: -1,
+        }[result]
+
+    async def on_end(self, game_result):
+        now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        info_data = {
+            'result': self.int_result(game_result),
+            'steps': len(self.json_game_data),
+            'game_data': now
+        }
+        # game info
+        with open(str(BASE_DIR / 'replays' / f'info_{now}.json'), 'w') as fd:
+            json.dump(info_data, fd)
+        # game data
+        with open(str(BASE_DIR / 'replays' / f'data_{now}.json'), 'w') as fd:
+            json.dump(self.json_game_data, fd)
+        await super().on_end(game_result)
 
     async def visualize_map(self):
 
@@ -46,8 +86,37 @@ class CannonRushBot(BotAI):
         cv2.imwrite(f'{self.img_num}.png', img)
         return
 
+    def save_state(self):
+        # store state in JSON format (we might want to use some serialization
+        # later).
+        if not self.map_data:
+            self.map_data = self.save_map()
+        data = [
+            self.items_to_list(self.units),
+            self.items_to_list(self.structures),
+            self.items_to_list(self.enemy_structures),
+            self.items_to_list(self.enemy_units)
+
+        ]
+        self.json_game_data.append(data)
+
+    def save_map(self, map_name=None):
+        if not map_name:
+            map_name = self.game_info.map_name
+        # store map as Web-readable json-dict
+        filename = BASE_DIR / 'maps' / f'{map_name}.json'
+        if filename.exists():
+            return
+        data = [
+                [x for x in self.game_info.map_size],
+                self.items_to_list(self.mineral_field),
+        ]
+        with open(str(filename), 'w') as fp:
+            json.dump(data, fp)
+
     async def on_step(self, iteration):
-        await self.visualize_map()
+        # await self.visualize_map()
+        self.save_state()
 
         if iteration == 0:
             await self.chat_send("(probe)(pylon)(cannon)(cannon)(gg)")
@@ -119,7 +188,6 @@ def main():
         os.mkdir(replays_dir)
     replay_path = replays_dir / f'{now}.sc2replay'
     print(f'save replay as {replay_path}')
-
     run_game(
         maps.get(os.environ['MAP']),
         [Bot(Race.Protoss, CannonRushBot(), name="CheeseCannon"),

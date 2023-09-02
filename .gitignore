@@ -128,8 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-
-
 # sc2
-replays/
+bot/data/
 imgs/
+replays/
+
+node_modules/
