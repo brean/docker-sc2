@@ -4,8 +4,9 @@
 # Or a wine binary from lutris:
 # WINE=/home/burny/.local/share/lutris/runners/wine/lutris-4.20-x86_64/bin/wine64
 # Default Lutris StarCraftII Installation path:
-#declare -x SC2PATH="/home/andreas/.wine/drive_c/Program Files (x86)/StarCraft II/Replays"
-declare -x SC2PATH="/home/andreas/Games/StarCraftII/"
+#declare -x SC2PATH="$HOME/.wine/drive_c/Program Files (x86)/StarCraftII/Replays"
+declare -x SC_PATH="$HOME/Games/StarCraftII/"
+declare -x SC2_DOCUMENTS="$HOME/Documents/StarCraftII"
 declare -x MAP="AbyssalReefLE"
 echo $SC2PATH
 python3 bot/cannon_rush.py

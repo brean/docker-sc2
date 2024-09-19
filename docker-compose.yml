@@ -10,7 +10,6 @@ services:
       - ./bot:/bot:z
       - "${SC2_DOCUMENTS}:/root/Documents/StarCraftII:rw"
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
-      - "./replays:${REPLAY_FOLDER}:rw"
     command: [
       "python", "/bot/cannon_rush.py"]
     environment: 
