@@ -1,4 +1,6 @@
-FROM python:3.11
+FROM python:3.12
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 # install libosmesa6 as recommended
 # x11-xserver-utils provides xrandr
