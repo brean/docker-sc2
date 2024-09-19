@@ -16,7 +16,7 @@ MAP=KingsCove
 
 Note that map names match with the `.SC2Map`-file names but do not end with "LE".
 
-You can run `run_bot.bash` file to start the bot (for now a simple cannon_rush-bot) inside docker-compose, it will also start inside an xhost-environment.
+You can run `run_bot.bash` file to start the bot (for now a simple cannon_rush-bot) inside docker compose, it will also start inside an xhost-environment.
 
 ## Note
 For my convenience this also pulls the [Web-Server-SC2](https://github.com/brean/web-server-sc2) repository with the server there to visualize the games the bot has played. The Bot does not need this server and normally does not connect to it for a live view of a match.

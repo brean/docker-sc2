@@ -2,6 +2,7 @@ services:
   sc2bot:
     build:
       context: .
+      network: host
       dockerfile: Dockerfile
     volumes:
       - "${SC_PATH}:/root/StarCraftII:z"
