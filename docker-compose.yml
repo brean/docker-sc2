@@ -16,7 +16,6 @@ services:
       - DISPLAY
       - MAP=${MAP}
       - "PYTHONUNBUFFERED=1"
-      # - SC2PF=${SC2PF}
       - NVIDIA_VISIBLE_DEVICES=all # for docker-nvidia2
       - NVIDIA_DRIVER_CAPABILITIES=all # for docker-nvidia2
     privileged: true
