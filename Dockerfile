@@ -11,6 +11,7 @@ RUN apt-get update \
     libosmesa6 \
     python3-opencv \
     python3-numpy \
+    python3-websockets \
   && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install burnysc2 six opencv-python pyqt5
+RUN pip3 install burnysc2 six opencv-python websockets

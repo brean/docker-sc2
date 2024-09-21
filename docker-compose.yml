@@ -19,3 +19,4 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all # for docker-nvidia2
       - NVIDIA_DRIVER_CAPABILITIES=all # for docker-nvidia2
     privileged: true
+    network_mode: host
