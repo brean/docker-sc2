@@ -41,7 +41,7 @@ class CannonRushBot(BotAI):
             img[int(x)][int(y)] = color
 
     def _parse_position(self, item):
-        return [round(p * 2) / 2 for p in item.position_tuple]
+        return [p for p in item.position_tuple]
 
     def items_to_list(self, items):
         data = []
@@ -71,6 +71,8 @@ class CannonRushBot(BotAI):
         # game data
         with open(str(BASE_DIR / 'replays' / f'data_{now}.json'), 'w') as fd:
             json.dump(self.json_game_data, fd)
+        info_data['type'] = 'game_ended'
+        await self.send_json(info_data)
         await super().on_end(game_result)
 
     async def send_json(self, data):
@@ -226,6 +228,8 @@ def main():
         os.mkdir(replays_dir)
     replay_path = replays_dir / f'{now}.sc2replay'
     print(f'save replay as {replay_path}')
+    # TODO: start paused, wait for connection and only start when the client
+    # tells us to or when we have an autostart flag set.
     with connect("ws://localhost:8000/sc_client") as websocket:
         run_game(
             maps.get(os.environ['MAP']),
