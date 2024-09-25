@@ -16,6 +16,7 @@ from sc2.bot_ai import BotAI
 from sc2.data import Difficulty, Race, Result
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.main import run_game
+from sc2.paths import Paths
 from sc2.player import Bot, Computer
 
 BASE_DIR = Path(__file__).parent.absolute() / 'data'
@@ -211,38 +212,57 @@ class CannonRushBot(BotAI):
                 await self.build(building, near=pos)
 
 
-def main():
-    # debug which map we are loading
-    print(f'load map {os.environ["MAP"]}')
-
-    # save replay in user path to directly run local sc2 for debugging
+def start_game(_map, websocket):
     now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-
-    # replay_path = f'/root/Documents/StarCraftII/Accounts/'
-    # account_id = os.listdir(replay_path)[0]
-    # replay_path += account_id
-    # replay_path += '/'
-    # replay_path += os.listdir(replay_path)[0]
     replays_dir = BASE_DIR / 'replays'
     if not replays_dir.exists():
         os.mkdir(replays_dir)
     replay_path = replays_dir / f'{now}.sc2replay'
-    print(f'save replay as {replay_path}')
+    print(f'will save replay as {replay_path}')
+
+    run_game(
+        maps.get(_map),
+        [
+            Bot(
+                Race.Protoss,
+                CannonRushBot(websocket),
+                name="CheeseCannon"),
+            Computer(Race.Protoss, Difficulty.Medium)
+        ],
+        realtime=False,
+        save_replay_as=replay_path
+    )
+
+
+def maps_list():
+    maps_lst = []
+    for map_dir in (p for p in Paths.MAPS.iterdir()):
+        if map_dir.is_dir():
+            if 'Melee' in str(map_dir) or 'mini_games' in str(map_dir):
+                continue
+            for map_file in (p.name for p in map_dir.iterdir()):
+                if map_file.lower().endswith('sc2map'):
+                    maps_lst.append(map_file[:-7])
+    return maps_lst
+
+
+def main():
+    maps_lst = maps_list()
+
     # TODO: start paused, wait for connection and only start when the client
     # tells us to or when we have an autostart flag set.
     with connect("ws://localhost:8000/sc_client") as websocket:
-        run_game(
-            maps.get(os.environ['MAP']),
-            [
-                Bot(
-                    Race.Protoss,
-                    CannonRushBot(websocket),
-                    name="CheeseCannon"),
-                Computer(Race.Protoss, Difficulty.Medium)
-            ],
-            realtime=False,
-            save_replay_as=replay_path
-        )
+        websocket.send(json.dumps({
+            'type': 'new_game',
+            'started': False,
+            'bot_name': 'cheesy_cannon',
+            'maps': maps_lst
+        }))
+        while True:
+            data = json.loads(websocket.recv())
+            if 'type' in data and data['type'] == 'start_game':
+                start_game(data['map'], websocket)
+                break
 
 
 if __name__ == "__main__":
