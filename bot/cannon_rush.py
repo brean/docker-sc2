@@ -5,6 +5,8 @@ import os
 import random
 from pathlib import Path
 
+from websockets.sync.client import connect
+
 # use opencv to visualize the map
 import cv2
 import numpy as np
@@ -14,6 +16,7 @@ from sc2.bot_ai import BotAI
 from sc2.data import Difficulty, Race, Result
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.main import run_game
+from sc2.paths import Paths
 from sc2.player import Bot, Computer
 
 BASE_DIR = Path(__file__).parent.absolute() / 'data'
@@ -25,8 +28,9 @@ BLUE = 0
 
 
 class CannonRushBot(BotAI):
-    def __init__(self, map_name: str):
+    def __init__(self, websocket, map_name: str):
         super().__init__()
+        self.websocket = websocket
         self.img_num = 0
         self.map_saved = False
         self.json_game_data = []
@@ -39,7 +43,7 @@ class CannonRushBot(BotAI):
             img[int(x)][int(y)] = color
 
     def _parse_position(self, item):
-        return [round(p * 2) / 2 for p in item.position_tuple]
+        return [p for p in item.position_tuple]
 
     def items_to_list(self, items):
         data = []
@@ -73,7 +77,34 @@ class CannonRushBot(BotAI):
         game_path = str(BASE_DIR / 'replays' / f'data_{file_base}.json')
         with open(game_path, 'w', encoding='utf-8') as fd:
             json.dump(self.json_game_data, fd)
+        info_data['type'] = 'game_ended'
+        await self.send_json(info_data)
         await super().on_end(game_result)
+
+    async def send_json(self, data):
+        self.websocket.send(json.dumps(data))
+
+    async def send_map(self):
+        height, width = self.game_info.map_size
+        await self.send_json({
+            'type': 'map',
+            'width': width,
+            'height': height,
+            'mineral_field': self.items_to_list(self.mineral_field)
+        })
+
+    async def send_state(self, iteration=-1):
+        """Send system state to server."""
+        if iteration == 0:
+            await self.send_map()
+        await self.send_json({
+            'type': 'step',
+            'iteration': iteration,
+            'units': self.items_to_list(self.units),
+            'structures': self.items_to_list(self.structures),
+            'enemy_units': self.items_to_list(self.enemy_units),
+            'enemy_structures': self.items_to_list(self.enemy_structures)
+        })
 
     async def visualize_map(self):
         height, width = self.game_info.map_size
@@ -98,7 +129,6 @@ class CannonRushBot(BotAI):
             self.items_to_list(self.state.structures),
             self.items_to_list(self.state.enemy_structures),
             self.items_to_list(self.state.enemy_units)
-
         ]
         self.json_game_data.append(data)
 
@@ -108,19 +138,21 @@ class CannonRushBot(BotAI):
         # store map as Web-readable json-dict
         filename = BASE_DIR / 'maps' / f'{map_name}.json'
         if filename.exists():
-            return
+            return None
         data = [
             [x for x in self.game_info.map_size],
             self.items_to_list(self.state.mineral_field),
         ]
         with open(str(filename), 'w', encoding='utf-8') as fp:
-            json.dump(data, fp)
+            json.dump(data, fp, indent=2)
         # return data for visualization
         return data
 
     async def on_step(self, iteration):
         # await self.visualize_map()
+        # send data to the custom websocket server
         self.save_state()
+        await self.send_state(iteration)
 
         if iteration == 0:
             await self.chat_send("(probe)(pylon)(cannon)(cannon)(gg)")
@@ -186,32 +218,61 @@ class CannonRushBot(BotAI):
                 await self.build(building, near=pos)
 
 
-def main(map_name=None):
+def main(map_name=None, websocket):
     # debug which map we are loading
     map_name = os.environ['MAP'] if not map_name else map_name
     print(f'load map {map_name}')
 
     # save replay in user path to directly run local sc2 for debugging
     now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-
-    # replay_path = f'/root/Documents/StarCraftII/Accounts/'
-    # account_id = os.listdir(replay_path)[0]
-    # replay_path += account_id
-    # replay_path += '/'
-    # replay_path += os.listdir(replay_path)[0]
     replays_dir = BASE_DIR / 'replays'
     if not replays_dir.exists():
         os.mkdir(replays_dir)
     replay_path = replays_dir / f'{now}.sc2replay'
-    
     print(f'save replay as {replay_path}')
     run_game(
         maps.get(map_name),
-        [Bot(Race.Protoss, CannonRushBot(map_name), name="CheeseCannon"),
-         Computer(Race.Protoss, Difficulty.Medium)],
+        [
+            Bot(
+                Race.Protoss,
+                CannonRushBot(websocket, map_name),
+                name="CheeseCannon"),
+            Computer(Race.Protoss, Difficulty.Medium)
+        ],
         realtime=False,
         save_replay_as=replay_path
     )
+
+
+def maps_list():
+    maps_lst = []
+    for map_dir in (p for p in Paths.MAPS.iterdir()):
+        if map_dir.is_dir():
+            if 'Melee' in str(map_dir) or 'mini_games' in str(map_dir):
+                continue
+            for map_file in (p.name for p in map_dir.iterdir()):
+                if map_file.lower().endswith('sc2map'):
+                    maps_lst.append(map_file[:-7])
+    return maps_lst
+
+
+def main():
+    maps_lst = maps_list()
+
+    # TODO: start paused, wait for connection and only start when the client
+    # tells us to or when we have an autostart flag set.
+    with connect("ws://localhost:8000/sc_client") as websocket:
+        websocket.send(json.dumps({
+            'type': 'new_game',
+            'started': False,
+            'bot_name': 'cheesy_cannon',
+            'maps': maps_lst
+        }))
+        while True:
+            data = json.loads(websocket.recv())
+            if 'type' in data and data['type'] == 'start_game':
+                start_game(data['map'], websocket)
+                break
 
 
 if __name__ == "__main__":
