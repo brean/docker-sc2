@@ -218,7 +218,7 @@ class CannonRushBot(BotAI):
                 await self.build(building, near=pos)
 
 
-def main(map_name=None, websocket):
+def start_game(map_name=None, websocket=None):
     # debug which map we are loading
     map_name = os.environ['MAP'] if not map_name else map_name
     print(f'load map {map_name}')
