@@ -25,11 +25,12 @@ BLUE = 0
 
 
 class CannonRushBot(BotAI):
-    def __init__(self):
+    def __init__(self, map_name: str):
         super().__init__()
         self.img_num = 0
         self.map_saved = False
         self.json_game_data = []
+        self.map_name = map_name
         self.map_data = None
 
     def mark_pixel(self, img, items, color):
@@ -57,27 +58,31 @@ class CannonRushBot(BotAI):
 
     async def on_end(self, game_result):
         now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        file_base = str(now)
         info_data = {
             'result': self.int_result(game_result),
             'steps': len(self.json_game_data),
-            'game_data': now
+            'game_data': f'data_{file_base}.json',
+            'map': self.map_name
         }
         # game info
-        with open(str(BASE_DIR / 'replays' / f'info_{now}.json'), 'w') as fd:
+        info_path = str(BASE_DIR / 'replays' / f'info_{file_base}.json')
+        with open(info_path, 'w', encoding='utf-8') as fd:
             json.dump(info_data, fd)
         # game data
-        with open(str(BASE_DIR / 'replays' / f'data_{now}.json'), 'w') as fd:
+        game_path = str(BASE_DIR / 'replays' / f'data_{file_base}.json')
+        with open(game_path, 'w', encoding='utf-8') as fd:
             json.dump(self.json_game_data, fd)
         await super().on_end(game_result)
 
     async def visualize_map(self):
         height, width = self.game_info.map_size
         img = np.zeros((height, width, 3), np.uint8)
-        self.mark_pixel(img, self.mineral_field, [255, 50, 50])
-        self.mark_pixel(img, self.enemy_units, [30, 30, 255])
-        self.mark_pixel(img, self.enemy_structures, [50, 50, 235])
+        self.mark_pixel(img, self.state.mineral_field, [255, 50, 50])
+        self.mark_pixel(img, self.state.enemy_units, [30, 30, 255])
+        self.mark_pixel(img, self.state.enemy_structures, [50, 50, 235])
         self.mark_pixel(img, self.units, [30, 255, 30])
-        self.mark_pixel(img, self.structures, [50, 235, 50])
+        self.mark_pixel(img, self.state.structures, [50, 235, 50])
         self.img_num += 1
         print(f'{self.img_num}.png')
         cv2.imwrite(f'{self.img_num}.png', img)
@@ -90,14 +95,14 @@ class CannonRushBot(BotAI):
             self.map_data = self.save_map()
         data = [
             self.items_to_list(self.units),
-            self.items_to_list(self.structures),
-            self.items_to_list(self.enemy_structures),
-            self.items_to_list(self.enemy_units)
+            self.items_to_list(self.state.structures),
+            self.items_to_list(self.state.enemy_structures),
+            self.items_to_list(self.state.enemy_units)
 
         ]
         self.json_game_data.append(data)
 
-    def save_map(self, map_name=None):
+    def save_map(self, map_name=None) -> dict:
         if not map_name:
             map_name = self.game_info.map_name
         # store map as Web-readable json-dict
@@ -106,10 +111,12 @@ class CannonRushBot(BotAI):
             return
         data = [
             [x for x in self.game_info.map_size],
-            self.items_to_list(self.mineral_field),
+            self.items_to_list(self.state.mineral_field),
         ]
-        with open(str(filename), 'w') as fp:
+        with open(str(filename), 'w', encoding='utf-8') as fp:
             json.dump(data, fp)
+        # return data for visualization
+        return data
 
     async def on_step(self, iteration):
         # await self.visualize_map()
@@ -134,15 +141,15 @@ class CannonRushBot(BotAI):
                 nexus.train(UnitTypeId.PROBE)
 
         # If we have no pylon, build one near starting nexus
-        elif not self.structures(UnitTypeId.PYLON) and \
+        elif not self.state.structures(UnitTypeId.PYLON) and \
                 self.already_pending(UnitTypeId.PYLON) == 0:
             if self.can_afford(UnitTypeId.PYLON):
                 await self.build(UnitTypeId.PYLON, near=nexus)
 
         # If we have no forge, build one near the pylon that is closest to
         # our starting nexus
-        elif not self.structures(UnitTypeId.FORGE):
-            pylon_ready = self.structures(UnitTypeId.PYLON).ready
+        elif not self.state.structures(UnitTypeId.FORGE):
+            pylon_ready = self.state.structures(UnitTypeId.PYLON).ready
             if pylon_ready:
                 if self.can_afford(UnitTypeId.FORGE):
                     await self.build(
@@ -150,7 +157,7 @@ class CannonRushBot(BotAI):
                         near=pylon_ready.closest_to(nexus))
 
         # If we have less than 2 pylons, build one at the enemy base
-        elif self.structures(UnitTypeId.PYLON).amount < 2:
+        elif self.state.structures(UnitTypeId.PYLON).amount < 2:
             if self.can_afford(UnitTypeId.PYLON):
                 pos = self.enemy_start_locations[0].towards(
                     self.game_info.map_center, random.randrange(8, 15))
@@ -158,10 +165,10 @@ class CannonRushBot(BotAI):
 
         # If we have no cannons but at least 2 completed pylons, automatically
         # find a placement location and build them near enemy start location
-        elif not self.structures(UnitTypeId.PHOTONCANNON):
-            if self.structures(UnitTypeId.PYLON).ready.amount >= 2 and \
+        elif not self.state.structures(UnitTypeId.PHOTONCANNON):
+            if self.state.structures(UnitTypeId.PYLON).ready.amount >= 2 and \
                     self.can_afford(UnitTypeId.PHOTONCANNON):
-                pylon = self.structures(UnitTypeId.PYLON).closer_than(
+                pylon = self.state.structures(UnitTypeId.PYLON).closer_than(
                     20, self.enemy_start_locations[0]).random
                 await self.build(UnitTypeId.PHOTONCANNON, near=pylon)
 
@@ -179,9 +186,10 @@ class CannonRushBot(BotAI):
                 await self.build(building, near=pos)
 
 
-def main():
+def main(map_name=None):
     # debug which map we are loading
-    print(f'load map {os.environ["MAP"]}')
+    map_name = os.environ['MAP'] if not map_name else map_name
+    print(f'load map {map_name}')
 
     # save replay in user path to directly run local sc2 for debugging
     now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -195,10 +203,11 @@ def main():
     if not replays_dir.exists():
         os.mkdir(replays_dir)
     replay_path = replays_dir / f'{now}.sc2replay'
+    
     print(f'save replay as {replay_path}')
     run_game(
-        maps.get(os.environ['MAP']),
-        [Bot(Race.Protoss, CannonRushBot(), name="CheeseCannon"),
+        maps.get(map_name),
+        [Bot(Race.Protoss, CannonRushBot(map_name), name="CheeseCannon"),
          Computer(Race.Protoss, Difficulty.Medium)],
         realtime=False,
         save_replay_as=replay_path

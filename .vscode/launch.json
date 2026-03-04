@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "PYSC2: Cannon Rush Bot locally",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "program": "bot/cannon_rush.py",
       "console": "integratedTerminal",
