@@ -20,3 +20,33 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all # for docker-nvidia2
     privileged: true
     network_mode: host
+
+
+  web-backend-sc2:
+    image: web-backend-sc2
+    container_name: web-backend-sc2
+    build:
+      network: host
+      context: ./web-server-sc2/backend
+      dockerfile: ./Dockerfile
+    ports:
+      - 8000:8000
+    volumes: 
+      - ./web-server-sc2/backend/sc2_websocket_bridge:/app/sc2_websocket_bridge
+      - ./bot/data/:/app/data/:ro
+    command: ["sc2_web", "--port", "8000", "--host", "0.0.0.0", "--data_path", "/app/data/"]
+
+  web-frontend-sc2:
+    image: web-frontend-sc2
+    container_name: web-frontend-sc2
+    depends_on:
+      - web-backend-sc2
+    build:
+      network: host
+      context: ./web-server-sc2/frontend
+      dockerfile: ./Dockerfile
+    ports:
+      - 8080:8080
+    volumes: 
+      - ./web-server-sc2/frontend/src:/app/src:rw
+      - ./web-server-sc2/frontend/static:/app/static:ro

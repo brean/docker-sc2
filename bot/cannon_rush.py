@@ -36,6 +36,7 @@ class CannonRushBot(BotAI):
         self.json_game_data = []
         self.map_name = map_name
         self.map_data = None
+        self.started = datetime.datetime.now()
 
     def mark_pixel(self, img, items, color):
         for item in items:
@@ -63,11 +64,16 @@ class CannonRushBot(BotAI):
     async def on_end(self, game_result):
         now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         file_base = str(now)
+        # see GameInfo
         info_data = {
+            'game_id': file_base,
+            'bot_name': 'CheeseCannon',
+            'map': self.map_name,
+            'opponent_name': 'pc_protoss_medium',
+            'started': self.started,
+            'finished': datetime.datetime.now(),
             'result': self.int_result(game_result),
             'steps': len(self.json_game_data),
-            'game_data': f'data_{file_base}.json',
-            'map': self.map_name
         }
         # game info
         info_path = str(BASE_DIR / 'replays' / f'info_{file_base}.json')
