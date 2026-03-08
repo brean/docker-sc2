@@ -4,6 +4,8 @@ services:
       context: .
       network: host
       dockerfile: Dockerfile
+    depends_on:
+      - web-backend-sc2
     volumes:
       - "${SC_PATH}:/root/StarCraftII:z"
       # - "${WINE_PATH}:/root/.wine/:z"

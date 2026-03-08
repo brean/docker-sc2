@@ -5,11 +5,8 @@ import os
 import random
 from pathlib import Path
 
-from websockets.sync.client import connect
-
-# use opencv to visualize the map
-import cv2
-import numpy as np
+from .persistence.local_files import PersistenceLocalFiles
+from .persistence.websocket import PersistenceWebSocket
 
 from sc2 import maps
 from sc2.bot_ai import BotAI
@@ -19,29 +16,24 @@ from sc2.main import run_game
 from sc2.paths import Paths
 from sc2.player import Bot, Computer
 
-BASE_DIR = Path(__file__).parent.absolute() / 'data'
-RED = 2
-GREEN = 1
-BLUE = 0
-
 # Based on the original CannonRush that comes with burnysc2, MIT licensed
+BASE_DIR = Path(__file__).parent.absolute() / 'data'
 
 
 class CannonRushBot(BotAI):
     def __init__(self, websocket, map_name: str):
         super().__init__()
+        self.persistence = [
+            # WebSocket and LocalFile
+            PersistenceLocalFiles(),
+            PersistenceWebSocket(websocket)
+        ]
         self.websocket = websocket
-        self.img_num = 0
         self.map_saved = False
         self.json_game_data = []
         self.map_name = map_name
         self.map_data = None
         self.started = datetime.datetime.now()
-
-    def mark_pixel(self, img, items, color):
-        for item in items:
-            x, y = item.position_tuple
-            img[int(x)][int(y)] = color
 
     def _parse_position(self, item):
         return [p for p in item.position_tuple]
@@ -53,7 +45,7 @@ class CannonRushBot(BotAI):
             data.append(pos + [item.type_id.value])
         return data
 
-    def int_result(self, result):
+    def int_result(self, result: Result) -> int:
         return {
             Result.Tie: 0,
             Result.Victory: 1,
@@ -62,6 +54,9 @@ class CannonRushBot(BotAI):
         }[result]
 
     async def on_end(self, game_result):
+        # iterate over all persistence and call save
+        for persistence in self.persistence:
+            await persistence.save(self)
         now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         file_base = str(now)
         # see GameInfo
@@ -87,44 +82,6 @@ class CannonRushBot(BotAI):
         await self.send_json(info_data)
         await super().on_end(game_result)
 
-    async def send_json(self, data):
-        self.websocket.send(json.dumps(data))
-
-    async def send_map(self):
-        height, width = self.game_info.map_size
-        await self.send_json({
-            'type': 'map',
-            'width': width,
-            'height': height,
-            'mineral_field': self.items_to_list(self.mineral_field)
-        })
-
-    async def send_state(self, iteration=-1):
-        """Send system state to server."""
-        if iteration == 0:
-            await self.send_map()
-        await self.send_json({
-            'type': 'step',
-            'iteration': iteration,
-            'units': self.items_to_list(self.units),
-            'structures': self.items_to_list(self.structures),
-            'enemy_units': self.items_to_list(self.enemy_units),
-            'enemy_structures': self.items_to_list(self.enemy_structures)
-        })
-
-    async def visualize_map(self):
-        height, width = self.game_info.map_size
-        img = np.zeros((height, width, 3), np.uint8)
-        self.mark_pixel(img, self.state.mineral_field, [255, 50, 50])
-        self.mark_pixel(img, self.state.enemy_units, [30, 30, 255])
-        self.mark_pixel(img, self.state.enemy_structures, [50, 50, 235])
-        self.mark_pixel(img, self.units, [30, 255, 30])
-        self.mark_pixel(img, self.state.structures, [50, 235, 50])
-        self.img_num += 1
-        print(f'{self.img_num}.png')
-        cv2.imwrite(f'{self.img_num}.png', img)
-        return
-
     def save_state(self):
         # store state in JSON format (we might want to use some serialization
         # later).
@@ -137,22 +94,6 @@ class CannonRushBot(BotAI):
             self.items_to_list(self.state.enemy_units)
         ]
         self.json_game_data.append(data)
-
-    def save_map(self, map_name=None) -> dict:
-        if not map_name:
-            map_name = self.game_info.map_name
-        # store map as Web-readable json-dict
-        filename = BASE_DIR / 'maps' / f'{map_name}.json'
-        if filename.exists():
-            return None
-        data = [
-            [x for x in self.game_info.map_size],
-            self.items_to_list(self.state.mineral_field),
-        ]
-        with open(str(filename), 'w', encoding='utf-8') as fp:
-            json.dump(data, fp, indent=2)
-        # return data for visualization
-        return data
 
     async def on_step(self, iteration):
         # await self.visualize_map()
@@ -264,21 +205,17 @@ def maps_list():
 
 def main():
     maps_lst = maps_list()
-
-    # TODO: start paused, wait for connection and only start when the client
-    # tells us to or when we have an autostart flag set.
-    with connect("ws://localhost:8000/sc_client") as websocket:
-        websocket.send(json.dumps({
-            'type': 'new_game',
-            'started': False,
-            'bot_name': 'cheesy_cannon',
-            'maps': maps_lst
-        }))
-        while True:
-            data = json.loads(websocket.recv())
-            if 'type' in data and data['type'] == 'start_game':
-                start_game(data['map'], websocket)
-                break
+    # just start a new game on the first map we find
+    # Normally the bot_manager should start the game, for debugging!
+    # we can run the game from here as well.
+    if 'MAP' in os.environ:
+        next_map = os.environ['MAP']
+    else:
+        print('no map given, choosing one randomly from the map pool:')
+        next_map = random.choice(maps_lst)
+    print(next_map)
+    # TODO: async loop
+    #start_game(map_name=next_map, websocket=None)
 
 
 if __name__ == "__main__":

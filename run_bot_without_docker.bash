@@ -8,5 +8,5 @@
 declare -x SC2PF="Linux"
 declare -x SC2PATH="$HOME/Games/StarCraftII/"
 declare -x SC2_DOCUMENTS="$HOME/Documents/StarCraftII"
-declare -x MAP="AbyssalReefLE"
+# declare -x MAP="AbyssalReefLE"
 python3 bot/cannon_rush.py
